@@ -1,0 +1,23 @@
+{
+  "expo": {
+    "name": "Nestin Estate",
+    "slug": "nestin-estate",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "nestin",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.nestin.estate",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Nestin Capture needs the camera for GPS-verified listing photos.",
+        "NSLocationWhenInUseUsageDescription": "Nestin Capture stamps each photo with your live location."
+      }
+    },
+    "android": {
+      "package": "com.nestin.estate",
+      "permissions": ["CAMERA", "ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION"]
+    },
+    "plugins": ["expo-router", ["expo-camera"], ["expo-location"]]
+  }
+}
