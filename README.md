@@ -1,6 +1,6 @@
-# Nestin Estate — Mobile (Expo)
+# Flowcheq Estate — Mobile (Expo)
 
-Landlord listing photos must use **Nestin Capture** (`/nestin-capture` route).
+Landlord listing photos must use **Flowcheq Capture** (`/nestin-capture` route).
 
 ## Setup
 

@@ -2,7 +2,11 @@ import { useEffect, useRef, useState } from 'react';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Location from 'expo-location';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import type { GpsCapturePhoto } from '@nestin/capture';
+import { BrandButton } from '../../components/BrandButton';
+import { colors, radius, spacing } from '../../lib/theme';
+import { getShotHint } from './captureGuide';
 
 interface NestinCameraScreenProps {
   sequence: number;
@@ -41,12 +45,15 @@ export function NestinCameraScreen({ sequence, onCaptured, onCancel }: NestinCam
 
   if (!permission?.granted) {
     return (
-      <View style={styles.centered}>
-        <Text style={styles.text}>Camera permission required for Nestin Capture</Text>
-        <Pressable style={styles.btn} onPress={requestPermission}>
-          <Text style={styles.btnText}>Grant access</Text>
-        </Pressable>
-      </View>
+      <SafeAreaView style={styles.permissionScreen}>
+        <View style={styles.permissionCard}>
+          <Text style={styles.permissionTitle}>Camera access needed</Text>
+          <Text style={styles.permissionText}>
+            Flowcheq Capture uses your camera to take GPS-verified listing photos on-site.
+          </Text>
+          <BrandButton label="Grant camera access" onPress={requestPermission} />
+        </View>
+      </SafeAreaView>
     );
   }
 
@@ -56,6 +63,7 @@ export function NestinCameraScreen({ sequence, onCaptured, onCancel }: NestinCam
     try {
       const result = await cameraRef.current.takePictureAsync({ quality: 0.85 });
       if (!result?.uri) return;
+      const guide = getShotHint(sequence);
       onCaptured({
         id: `photo_${Date.now()}`,
         uri: result.uri,
@@ -64,7 +72,7 @@ export function NestinCameraScreen({ sequence, onCaptured, onCancel }: NestinCam
           lng: coords.lng,
           accuracy: coords.accuracy,
           capturedAt: new Date().toISOString(),
-          tag: '',
+          tag: guide.tag,
           sequence,
         },
       });
@@ -76,55 +84,119 @@ export function NestinCameraScreen({ sequence, onCaptured, onCancel }: NestinCam
   return (
     <View style={styles.container}>
       <CameraView ref={cameraRef} style={styles.camera} facing="back" />
-      <View style={styles.overlay}>
+      <SafeAreaView style={styles.topBar} edges={['top']}>
         <View style={[styles.badge, gpsReady ? styles.badgeOk : styles.badgeWarn]}>
           <Text style={styles.badgeText}>
             {gpsReady ? `GPS locked · ±${Math.round(coords?.accuracy ?? 0)}m` : 'Waiting for GPS…'}
           </Text>
         </View>
-        <Text style={styles.counter}>Photo {sequence}</Text>
+      </SafeAreaView>
+      <SafeAreaView style={styles.overlay} edges={['bottom']}>
+        <Text style={styles.counter}>Photo {sequence} of session</Text>
+        <Text style={styles.hint}>{getShotHint(sequence).hint}</Text>
         <View style={styles.actions}>
-          <Pressable style={styles.secondaryBtn} onPress={onCancel}>
-            <Text style={styles.btnText}>Cancel</Text>
+          <Pressable style={styles.cancelBtn} onPress={onCancel}>
+            <Text style={styles.cancelText}>Cancel</Text>
           </Pressable>
           <Pressable
-            style={[styles.btn, (!gpsReady || capturing) && styles.btnDisabled]}
+            style={[styles.captureBtn, (!gpsReady || capturing) && styles.btnDisabled]}
             onPress={takePhoto}
             disabled={!gpsReady || capturing}
           >
             {capturing ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color={colors.primaryForeground} />
             ) : (
-              <Text style={styles.btnText}>Capture</Text>
+              <Text style={styles.captureText}>Capture</Text>
             )}
           </Pressable>
         </View>
-      </View>
+      </SafeAreaView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000' },
+  container: { flex: 1, backgroundColor: colors.cameraBackground },
   camera: { flex: 1 },
+  topBar: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    paddingTop: spacing.sm,
+  },
   overlay: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    padding: 20,
-    backgroundColor: 'rgba(0,0,0,0.55)',
+    padding: spacing.lg,
+    backgroundColor: colors.cameraOverlay,
   },
-  badge: { alignSelf: 'center', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, marginBottom: 8 },
-  badgeOk: { backgroundColor: '#166534' },
-  badgeWarn: { backgroundColor: '#b45309' },
-  badgeText: { color: '#fff', fontSize: 13, fontWeight: '600' },
-  counter: { color: '#fff', textAlign: 'center', fontSize: 18, marginBottom: 16 },
-  actions: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
-  btn: { flex: 1, backgroundColor: '#2563eb', padding: 16, borderRadius: 12, alignItems: 'center' },
-  secondaryBtn: { flex: 1, backgroundColor: '#475569', padding: 16, borderRadius: 12, alignItems: 'center' },
+  badge: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.pill,
+  },
+  badgeOk: { backgroundColor: colors.primary },
+  badgeWarn: { backgroundColor: colors.warning },
+  badgeText: { color: colors.primaryForeground, fontSize: 13, fontWeight: '600' },
+  counter: {
+    color: colors.primaryForeground,
+    textAlign: 'center',
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: spacing.xs,
+  },
+  hint: {
+    color: 'rgba(255,255,255,0.85)',
+    textAlign: 'center',
+    fontSize: 14,
+    marginBottom: spacing.md,
+  },
+  actions: { flexDirection: 'row', gap: spacing.md },
+  cancelBtn: {
+    flex: 1,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)',
+  },
+  cancelText: { color: colors.primaryForeground, fontWeight: '600' },
+  captureBtn: {
+    flex: 1,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+  },
+  captureText: { color: colors.primaryForeground, fontWeight: '700', fontSize: 16 },
   btnDisabled: { opacity: 0.5 },
-  btnText: { color: '#fff', fontWeight: '600' },
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, backgroundColor: '#0f172a' },
-  text: { color: '#e2e8f0', marginBottom: 16, textAlign: 'center' },
+  permissionScreen: {
+    flex: 1,
+    backgroundColor: colors.background,
+    justifyContent: 'center',
+    padding: spacing.lg,
+  },
+  permissionCard: {
+    backgroundColor: colors.primaryMuted,
+    borderRadius: radius.lg,
+    padding: spacing.xl,
+    borderWidth: 1,
+    borderColor: colors.primaryBorder,
+  },
+  permissionTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.foreground,
+    marginBottom: spacing.sm,
+  },
+  permissionText: {
+    color: colors.mutedForeground,
+    lineHeight: 22,
+    marginBottom: spacing.lg,
+  },
 });

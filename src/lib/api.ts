@@ -68,3 +68,31 @@ export async function uploadGpsCaptureSession(
 
   return response.json();
 }
+
+export type ManagedProperty = {
+  id: string;
+  title: string;
+  location: string;
+  gpsVerifiedPhotos?: boolean;
+  verificationStatus?: string;
+};
+
+export async function fetchAgentManagedProperties(token?: string): Promise<ManagedProperty[]> {
+  const authToken = token ?? (await getAuthToken());
+  if (!authToken) return [];
+
+  const response = await fetch(`${API_BASE_URL}/agent/managed-properties`, {
+    headers: { Authorization: `Bearer ${authToken}` },
+  });
+
+  if (!response.ok) return [];
+  const data = await response.json();
+  const list = Array.isArray(data) ? data : data?.data ?? [];
+  return list.map((h: Record<string, unknown>) => ({
+    id: String(h.id ?? h._id),
+    title: String(h.title ?? 'Untitled'),
+    location: String(h.location ?? ''),
+    gpsVerifiedPhotos: Boolean(h.gpsVerifiedPhotos),
+    verificationStatus: h.verificationStatus as string | undefined,
+  }));
+}
