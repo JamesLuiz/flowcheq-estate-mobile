@@ -2,7 +2,9 @@
 
 Expo app for **field agents**: GPS-verified property photos (Flowcheq Capture).
 
-**Agent distribution (App Store, Play Store, website APK):** see **[AGENT_DISTRIBUTION.md](./AGENT_DISTRIBUTION.md)**.
+**Zero store fees (recommended to start):** see **[ZERO_FEE_DISTRIBUTION.md](./ZERO_FEE_DISTRIBUTION.md)** — Android APK from your website + iPhone PWA (Add to Home Screen).
+
+**Agent distribution (App Store / Play Store, optional paid):** see **[AGENT_DISTRIBUTION.md](./AGENT_DISTRIBUTION.md)**.
 
 ---
 
