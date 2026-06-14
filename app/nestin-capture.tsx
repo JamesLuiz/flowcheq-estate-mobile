@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 import { validateGpsCaptureSession } from '@nestin/capture';
-import { uploadGpsCaptureSession } from '../src/lib/api';
+import { uploadGpsCaptureSession, type GpsCaptureUploadResult } from '../src/lib/api';
 import { BrandButton } from '../src/components/BrandButton';
 import { Screen } from '../src/components/Screen';
 import { StepProgress } from '../src/components/StepProgress';
@@ -40,6 +40,7 @@ export default function NestinCaptureRoute() {
   const [step, setStep] = useState<Step>('intro');
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadResult, setUploadResult] = useState<GpsCaptureUploadResult | null>(null);
 
   if (step === 'success') {
     return (
@@ -51,6 +52,11 @@ export default function NestinCaptureRoute() {
           <Text style={typography.subtitle}>
             GPS photos for {propertyTitle ?? 'this listing'} were submitted. The landlord and legal
             team can proceed with verification.
+            {uploadResult?.coordinatesCorrection
+              ? ` The map pin was adjusted by ${uploadResult.coordinatesCorrection.distanceMeters}m based on your on-site GPS.`
+              : uploadResult?.coordinatesSource === 'agent_gps'
+                ? ' Listing coordinates were set from your on-site GPS.'
+                : ''}
           </Text>
           <BrandButton label="Back to assignments" onPress={() => router.replace('/')} />
         </View>
@@ -124,7 +130,8 @@ export default function NestinCaptureRoute() {
               setUploadError(null);
               setIsUploading(true);
               try {
-                await uploadGpsCaptureSession(resolvedPropertyId!, session);
+                const result = await uploadGpsCaptureSession(resolvedPropertyId!, session);
+                setUploadResult(result);
                 setStep('success');
               } catch (e) {
                 setUploadError(e instanceof Error ? e.message : 'Upload failed');

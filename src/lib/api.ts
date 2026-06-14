@@ -2,11 +2,23 @@ import type { GpsCaptureSession } from '@nestin/capture';
 import { getAuthToken } from './authToken';
 import { API_BASE_URL } from './config';
 
+export type GpsCaptureUploadResult = {
+  id: string;
+  coordinates?: { lat: number; lng: number };
+  coordinatesSource?: 'places' | 'geocode' | 'agent_gps';
+  coordinatesCorrection?: {
+    previousLat: number;
+    previousLng: number;
+    distanceMeters: number;
+    correctedAt: string;
+  };
+};
+
 export async function uploadGpsCaptureSession(
   propertyId: string,
   session: GpsCaptureSession,
   token?: string,
-): Promise<unknown> {
+): Promise<GpsCaptureUploadResult> {
   const authToken = token ?? (await getAuthToken());
   if (!authToken) {
     throw new Error(
@@ -66,7 +78,7 @@ export async function uploadGpsCaptureSession(
     throw new Error(Array.isArray(message) ? message.join(', ') : String(message));
   }
 
-  return response.json();
+  return response.json() as Promise<GpsCaptureUploadResult>;
 }
 
 export type ManagedProperty = {
