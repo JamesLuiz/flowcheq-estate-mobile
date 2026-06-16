@@ -1,6 +1,130 @@
 import type { GpsCaptureSession } from '@nestin/capture';
 import { getAuthToken } from './authToken';
 import { API_BASE_URL } from './config';
+import type { AppUser } from '../types/user';
+
+type RequestOptions = {
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+  body?: unknown;
+  skipAuth?: boolean;
+};
+
+async function parseError(response: Response): Promise<string> {
+  try {
+    const err = await response.json();
+    const message = (err as { message?: string | string[] }).message;
+    if (Array.isArray(message)) return message.join(', ');
+    if (typeof message === 'string') return message;
+  } catch {
+    // ignore
+  }
+  return response.statusText || `Request failed (${response.status})`;
+}
+
+async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+  };
+
+  if (options.body !== undefined) {
+    headers['Content-Type'] = 'application/json';
+  }
+
+  if (!options.skipAuth) {
+    const token = await getAuthToken();
+    if (token) headers.Authorization = `Bearer ${token}`;
+  }
+
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method: options.method ?? 'GET',
+    headers,
+    body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
+  });
+
+  if (!response.ok) {
+    throw new Error(await parseError(response));
+  }
+
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
+  return response.json() as Promise<T>;
+}
+
+const authApi = {
+  login: (payload: { email: string; password: string }) =>
+    request<{ accessToken: string; user: AppUser }>('/auth/login', {
+      method: 'POST',
+      body: payload,
+      skipAuth: true,
+    }),
+  me: () => request<AppUser>('/auth/me'),
+};
+
+const youverifyApi = {
+  getAccountStatus: () =>
+    request<{
+      required: boolean;
+      youverifyStatus?: string;
+      verificationFee?: number;
+      feePaid?: boolean;
+      paymentStatus?: string;
+      walletBalance?: number;
+      virtualAccount?: {
+        accountNumber?: string;
+        accountName?: string;
+        bankName?: string;
+      } | null;
+      sdkReady?: boolean;
+      sdkConfig?: {
+        vFormId?: string;
+        publicMerchantKey?: string;
+        sandboxEnvironment?: boolean;
+        metadata?: Record<string, unknown>;
+      } | null;
+    }>('/youverify/account/status'),
+  payVerificationFee: (client: 'web' | 'mobile' = 'mobile') =>
+    request<{
+      success: boolean;
+      alreadyPaid?: boolean;
+      alreadyVerified?: boolean;
+      paymentLink?: string;
+      txRef?: string;
+      amount?: number;
+      message?: string;
+    }>('/youverify/account/pay-fee', { method: 'POST', body: { client } }),
+  completeSdkVerification: (payload: Record<string, unknown>) =>
+    request<{ success: boolean; verified?: boolean; alreadyVerified?: boolean; message?: string }>(
+      '/youverify/account/sdk-complete',
+      { method: 'POST', body: payload },
+    ),
+};
+
+const agentsApi = {
+  getBankAccount: () =>
+    request<{
+      virtualAccount?: {
+        accountNumber?: string;
+        accountName?: string;
+        bankName?: string;
+        bankCode?: string;
+        status?: string;
+      };
+      walletBalance?: number;
+    }>('/agents/me/bank-account'),
+  fundWallet: (amount: number) =>
+    request<{ success: boolean; paymentLink: string; txRef: string }>('/agents/me/fund-wallet', {
+      method: 'POST',
+      body: { amount },
+    }),
+};
+
+export const api = {
+  auth: authApi,
+  youverify: youverifyApi,
+  agents: agentsApi,
+};
 
 export type GpsCaptureUploadResult = {
   id: string;
@@ -21,9 +145,7 @@ export async function uploadGpsCaptureSession(
 ): Promise<GpsCaptureUploadResult> {
   const authToken = token ?? (await getAuthToken());
   if (!authToken) {
-    throw new Error(
-      'Sign in or set EXPO_PUBLIC_AUTH_TOKEN (dev) / store a JWT via setAuthToken.',
-    );
+    throw new Error('Sign in or set EXPO_PUBLIC_AUTH_TOKEN (dev) to upload captures.');
   }
   if (!propertyId) {
     throw new Error('propertyId is required. Open /nestin-capture?propertyId=YOUR_LISTING_ID');
@@ -59,23 +181,14 @@ export async function uploadGpsCaptureSession(
   formData.append('taggedPhotoDescriptions', JSON.stringify(descriptions));
   formData.append('taggedPhotoGps', JSON.stringify(gpsMeta));
 
-  const response = await fetch(
-    `${API_BASE_URL}/houses/${propertyId}/photos/gps-capture`,
-    {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${authToken}`,
-      },
-      body: formData,
-    },
-  );
+  const response = await fetch(`${API_BASE_URL}/houses/${propertyId}/photos/gps-capture`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${authToken}` },
+    body: formData,
+  });
 
   if (!response.ok) {
-    const err = await response.json().catch(() => ({}));
-    const message =
-      (err as { message?: string | string[] }).message ??
-      `Upload failed (${response.status})`;
-    throw new Error(Array.isArray(message) ? message.join(', ') : String(message));
+    throw new Error(await parseError(response));
   }
 
   return response.json() as Promise<GpsCaptureUploadResult>;

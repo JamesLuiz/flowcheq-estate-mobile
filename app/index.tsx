@@ -9,25 +9,72 @@ import {
 } from 'react-native';
 import { BrandButton } from '../src/components/BrandButton';
 import { Screen } from '../src/components/Screen';
+import { useAuth } from '../src/context/AuthContext';
 import { fetchAgentManagedProperties } from '../src/lib/api';
+import {
+  getPostLoginPath,
+  isYouverifyVerified,
+  requiresYouverifyAccount,
+} from '../src/lib/roles';
 import { colors, commonStyles, spacing, typography } from '../src/lib/theme';
 
 export default function HomeScreen() {
+  const { user, loading: authLoading, logout, isAuthenticated } = useAuth();
   const [loading, setLoading] = useState(true);
   const [properties, setProperties] = useState<
     Awaited<ReturnType<typeof fetchAgentManagedProperties>>
   >([]);
 
   useEffect(() => {
+    if (authLoading) return;
+
+    if (!isAuthenticated) {
+      router.replace('/auth/login');
+      return;
+    }
+
+    if (user && requiresYouverifyAccount(user.role) && !isYouverifyVerified(user)) {
+      router.replace(getPostLoginPath(user) as '/verify-account');
+      return;
+    }
+
     fetchAgentManagedProperties()
       .then(setProperties)
       .finally(() => setLoading(false));
-  }, []);
+  }, [authLoading, isAuthenticated, user]);
+
+  if (authLoading || !isAuthenticated) {
+    return (
+      <Screen>
+        <ActivityIndicator color={colors.primary} style={{ marginTop: spacing.xl }} />
+      </Screen>
+    );
+  }
 
   const needsCapture = properties.filter((p) => !p.gpsVerifiedPhotos);
 
   return (
     <Screen scroll>
+      <View style={styles.topBar}>
+        <Text style={typography.caption}>{user?.name}</Text>
+        <Pressable onPress={() => void logout().then(() => router.replace('/auth/login'))}>
+          <Text style={styles.link}>Sign out</Text>
+        </Pressable>
+      </View>
+
+      {user && requiresYouverifyAccount(user.role) && !isYouverifyVerified(user) ? (
+        <View style={commonStyles.warnBanner}>
+          <Text style={commonStyles.warnText}>
+            Complete identity verification to unlock all features.
+          </Text>
+          <BrandButton
+            label="Verify account"
+            style={{ marginTop: spacing.sm }}
+            onPress={() => router.push('/verify-account')}
+          />
+        </View>
+      ) : null}
+
       <View style={styles.hero}>
         <Text style={commonStyles.brandMark}>Field agent</Text>
         <Text style={styles.heroTitle}>On-site verification</Text>
@@ -35,6 +82,10 @@ export default function HomeScreen() {
           Select a property, capture GPS-stamped photos on location, and upload for listing
           verification.
         </Text>
+      </View>
+
+      <View style={styles.actions}>
+        <BrandButton label="Wallet" variant="outline" onPress={() => router.push('/wallet')} />
       </View>
 
       <View style={styles.statsRow}>
@@ -58,7 +109,9 @@ export default function HomeScreen() {
               key={property.id}
               style={styles.card}
               onPress={() =>
-                router.push(`/nestin-capture?propertyId=${property.id}&title=${encodeURIComponent(property.title)}`)
+                router.push(
+                  `/nestin-capture?propertyId=${property.id}&title=${encodeURIComponent(property.title)}`,
+                )
               }
             >
               <View style={styles.cardBody}>
@@ -79,8 +132,7 @@ export default function HomeScreen() {
       ) : (
         <View style={commonStyles.heroBlock}>
           <Text style={typography.body}>
-            No managed properties yet. Sign in as an agent on the web, accept a management request,
-            then reopen this app.
+            No managed properties yet. Accept a management request on the web, then reopen this app.
           </Text>
           <BrandButton
             label="Manual capture (enter ID)"
@@ -95,8 +147,16 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
+  topBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  link: { color: colors.primary, fontWeight: '600', fontSize: 14 },
   hero: { ...commonStyles.heroBlock, marginBottom: spacing.lg },
   heroTitle: { ...typography.title, color: colors.primary, marginBottom: spacing.sm },
+  actions: { marginBottom: spacing.md },
   statsRow: { flexDirection: 'row', gap: spacing.md, marginBottom: spacing.lg },
   stat: {
     flex: 1,
