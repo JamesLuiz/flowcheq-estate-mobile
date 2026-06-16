@@ -4,11 +4,12 @@ import { ActivityIndicator, StyleSheet, Text, TextInput, View } from 'react-nati
 import { BrandButton } from '../../src/components/BrandButton';
 import { Screen } from '../../src/components/Screen';
 import { useAuth } from '../../src/context/AuthContext';
-import { getPostLoginPath } from '../../src/lib/roles';
+import { api } from '../../src/lib/api';
+import { canUseAgentMobileApp, getPostLoginPath } from '../../src/lib/roles';
 import { colors, commonStyles, spacing, typography } from '../../src/lib/theme';
 
 export default function LoginScreen() {
-  const { login } = useAuth();
+  const { login, logout } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -19,7 +20,12 @@ export default function LoginScreen() {
     setLoading(true);
     try {
       const user = await login({ email: email.trim(), password });
-      router.replace(getPostLoginPath(user) as '/');
+      if (!canUseAgentMobileApp(user.role)) {
+        await logout();
+        setError('This app is for Flowcheq agents only. Landlords and house hunters should use the web app or user PWA.');
+        return;
+      }
+      router.replace(getPostLoginPath(user));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Login failed');
     } finally {
@@ -30,10 +36,11 @@ export default function LoginScreen() {
   return (
     <Screen scroll>
       <View style={styles.hero}>
-        <Text style={commonStyles.brandMark}>Flowcheq Estate</Text>
-        <Text style={typography.title}>Sign in</Text>
+        <Text style={commonStyles.brandMark}>Flowcheq Agent</Text>
+        <Text style={typography.title}>Agent sign in</Text>
         <Text style={typography.subtitle}>
-          Use your Flowcheq account to access field capture, wallet, and identity verification.
+          Field agents use this app for GPS property capture, wallet, and identity verification.
+          Other roles should use estate.flowcheq.com or the user PWA.
         </Text>
       </View>
 
@@ -46,7 +53,7 @@ export default function LoginScreen() {
           keyboardType="email-address"
           autoComplete="email"
           style={styles.input}
-          placeholder="you@example.com"
+          placeholder="agent@example.com"
           placeholderTextColor={colors.mutedForeground}
         />
 

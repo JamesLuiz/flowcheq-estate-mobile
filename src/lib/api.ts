@@ -60,6 +60,10 @@ const authApi = {
       skipAuth: true,
     }),
   me: () => request<AppUser>('/auth/me'),
+  resendEmailVerification: () =>
+    request<{ success: boolean; message: string }>('/auth/resend-email-verification', {
+      method: 'POST',
+    }),
 };
 
 const youverifyApi = {
@@ -104,6 +108,12 @@ const youverifyApi = {
 const agentsApi = {
   getBankAccount: () =>
     request<{
+      bankAccount?: {
+        bankName: string;
+        accountNumber: string;
+        accountName: string;
+        bankCode: string;
+      } | null;
       virtualAccount?: {
         accountNumber?: string;
         accountName?: string;
@@ -113,11 +123,50 @@ const agentsApi = {
       };
       walletBalance?: number;
     }>('/agents/me/bank-account'),
+  updateBankAccount: (bankAccount: {
+    bankName: string;
+    accountNumber: string;
+    accountName: string;
+    bankCode: string;
+  }) => request<AppUser>('/agents/me/bank-account', { method: 'PATCH', body: { bankAccount } }),
   fundWallet: (amount: number) =>
     request<{ success: boolean; paymentLink: string; txRef: string }>('/agents/me/fund-wallet', {
       method: 'POST',
       body: { amount },
     }),
+  withdraw: (amount: number, transactionPin: string, otp: string) =>
+    request<{
+      success: boolean;
+      transferId: string;
+      reference: string;
+      status: string;
+      amount: number;
+      message: string;
+    }>('/agents/me/withdraw', {
+      method: 'POST',
+      body: { amount, transactionPin, otp: otp.toUpperCase() },
+    }),
+  requestWithdrawalOtp: () =>
+    request<{ success: boolean; message: string; expiresAt: string }>(
+      '/agents/me/withdraw/request-otp',
+      { method: 'POST' },
+    ),
+  getWithdrawals: () => request<{ withdrawals: WithdrawalRecord[] }>('/agents/me/withdrawals'),
+  setTransactionPin: (pin: string) =>
+    request<{ success: boolean; message: string }>('/agents/me/transaction-pin', {
+      method: 'POST',
+      body: { pin },
+    }),
+  getTransactionPinStatus: () =>
+    request<{ hasPin: boolean }>('/agents/me/transaction-pin/status'),
+};
+
+export type WithdrawalRecord = {
+  id?: string;
+  amount: number;
+  status: string;
+  reference?: string;
+  createdAt?: string;
 };
 
 export const api = {

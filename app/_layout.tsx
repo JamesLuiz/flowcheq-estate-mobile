@@ -18,10 +18,11 @@ export default function RootLayout() {
             contentStyle: { backgroundColor: colors.background },
           }}
         >
-          <Stack.Screen name="index" options={{ title: 'Flowcheq Estate' }} />
-          <Stack.Screen name="auth/login" options={{ title: 'Sign in' }} />
-          <Stack.Screen name="verify-account" options={{ title: 'Verify account' }} />
-          <Stack.Screen name="wallet" options={{ title: 'Wallet' }} />
+          <Stack.Screen name="index" options={{ title: 'Flowcheq Agent' }} />
+          <Stack.Screen name="auth/login" options={{ title: 'Agent sign in' }} />
+          <Stack.Screen name="verify-email" options={{ title: 'Verify email' }} />
+          <Stack.Screen name="verify-account" options={{ title: 'Identity verification' }} />
+          <Stack.Screen name="wallet" options={{ title: 'Agent wallet' }} />
           <Stack.Screen
             name="nestin-capture"
             options={{ title: 'Flowcheq Capture', headerShown: false }}

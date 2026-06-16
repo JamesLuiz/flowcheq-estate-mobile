@@ -8,18 +8,21 @@ import {
   View,
 } from 'react-native';
 import { BrandButton } from '../src/components/BrandButton';
+import { EmailVerificationBanner } from '../src/components/EmailVerificationBanner';
 import { Screen } from '../src/components/Screen';
 import { useAuth } from '../src/context/AuthContext';
 import { fetchAgentManagedProperties } from '../src/lib/api';
 import {
+  canUseAgentMobileApp,
   getPostLoginPath,
+  isEmailVerified,
   isYouverifyVerified,
   requiresYouverifyAccount,
 } from '../src/lib/roles';
 import { colors, commonStyles, spacing, typography } from '../src/lib/theme';
 
 export default function HomeScreen() {
-  const { user, loading: authLoading, logout, isAuthenticated } = useAuth();
+  const { user, loading: authLoading, logout, isAuthenticated, refresh } = useAuth();
   const [loading, setLoading] = useState(true);
   const [properties, setProperties] = useState<
     Awaited<ReturnType<typeof fetchAgentManagedProperties>>
@@ -33,17 +36,23 @@ export default function HomeScreen() {
       return;
     }
 
-    if (user && requiresYouverifyAccount(user.role) && !isYouverifyVerified(user)) {
-      router.replace(getPostLoginPath(user) as '/verify-account');
+    if (user && !canUseAgentMobileApp(user.role)) {
+      void logout().then(() => router.replace('/auth/login'));
+      return;
+    }
+
+    const nextPath = getPostLoginPath(user);
+    if (nextPath !== '/') {
+      router.replace(nextPath);
       return;
     }
 
     fetchAgentManagedProperties()
       .then(setProperties)
       .finally(() => setLoading(false));
-  }, [authLoading, isAuthenticated, user]);
+  }, [authLoading, isAuthenticated, user, logout]);
 
-  if (authLoading || !isAuthenticated) {
+  if (authLoading || !isAuthenticated || !user) {
     return (
       <Screen>
         <ActivityIndicator color={colors.primary} style={{ marginTop: spacing.xl }} />
@@ -56,19 +65,21 @@ export default function HomeScreen() {
   return (
     <Screen scroll>
       <View style={styles.topBar}>
-        <Text style={typography.caption}>{user?.name}</Text>
+        <Text style={typography.caption}>{user.name}</Text>
         <Pressable onPress={() => void logout().then(() => router.replace('/auth/login'))}>
           <Text style={styles.link}>Sign out</Text>
         </Pressable>
       </View>
 
-      {user && requiresYouverifyAccount(user.role) && !isYouverifyVerified(user) ? (
+      <EmailVerificationBanner user={user} onResent={() => void refresh()} />
+
+      {requiresYouverifyAccount(user.role) && !isYouverifyVerified(user) ? (
         <View style={commonStyles.warnBanner}>
           <Text style={commonStyles.warnText}>
-            Complete identity verification to unlock all features.
+            Complete identity verification to unlock all agent features.
           </Text>
           <BrandButton
-            label="Verify account"
+            label="Verify identity"
             style={{ marginTop: spacing.sm }}
             onPress={() => router.push('/verify-account')}
           />
@@ -79,13 +90,21 @@ export default function HomeScreen() {
         <Text style={commonStyles.brandMark}>Field agent</Text>
         <Text style={styles.heroTitle}>On-site verification</Text>
         <Text style={typography.subtitle}>
-          Select a property, capture GPS-stamped photos on location, and upload for listing
-          verification.
+          Capture GPS-stamped photos, manage your wallet, and verify assigned properties from the
+          field.
         </Text>
       </View>
 
       <View style={styles.actions}>
-        <BrandButton label="Wallet" variant="outline" onPress={() => router.push('/wallet')} />
+        <BrandButton label="Agent wallet" variant="outline" onPress={() => router.push('/wallet')} />
+        {!isEmailVerified(user) ? (
+          <BrandButton
+            label="Verify email"
+            variant="secondary"
+            style={{ marginTop: spacing.sm }}
+            onPress={() => router.push('/verify-email')}
+          />
+        ) : null}
       </View>
 
       <View style={styles.statsRow}>
@@ -132,7 +151,8 @@ export default function HomeScreen() {
       ) : (
         <View style={commonStyles.heroBlock}>
           <Text style={typography.body}>
-            No managed properties yet. Accept a management request on the web, then reopen this app.
+            No managed properties yet. Accept a management request on the agent dashboard on the
+            web, then reopen this app.
           </Text>
           <BrandButton
             label="Manual capture (enter ID)"

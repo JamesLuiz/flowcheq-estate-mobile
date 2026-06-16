@@ -14,7 +14,7 @@ import { Screen } from '../src/components/Screen';
 import { useAuth } from '../src/context/AuthContext';
 import { buildYouverifyWebViewHtml } from '../src/features/youverify/youverifyWebViewHtml';
 import { api } from '../src/lib/api';
-import { isYouverifyVerified, requiresYouverifyAccount } from '../src/lib/roles';
+import { isYouverifyVerified, canUseAgentMobileApp } from '../src/lib/roles';
 import { colors, commonStyles, spacing, typography } from '../src/lib/theme';
 
 function formatNgn(amount: number) {
@@ -68,8 +68,8 @@ export default function VerifyAccountScreen() {
   }, [params.fee, loadStatus]);
 
   useEffect(() => {
-    if (user && !requiresYouverifyAccount(user.role)) {
-      router.replace('/');
+    if (user && !canUseAgentMobileApp(user.role)) {
+      router.replace('/auth/login');
     } else if (user && isYouverifyVerified(user)) {
       router.replace('/');
     }

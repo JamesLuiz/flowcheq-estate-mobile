@@ -4,6 +4,7 @@ export type AppUser = {
   email: string;
   role?: string;
   phone?: string;
+  emailVerified?: boolean;
   youverifyStatus?: string | null;
   walletBalance?: number;
 };
